@@ -1,0 +1,6 @@
+{
+  "webhook_url": "",
+  "reminder_time": "10:00",
+  "reminder_enabled": false,
+  "data_path": "./data/tasks"
+}
