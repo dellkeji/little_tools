@@ -1,0 +1,20 @@
+{
+  "name": "kids-learning-app",
+  "version": "1.0.0",
+  "description": "幼儿园儿童学习APP - 英语、数学、语文",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "pm2": "pm2 start server.js --name kids-learning-app",
+    "pm2:stop": "pm2 stop kids-learning-app",
+    "pm2:restart": "pm2 restart kids-learning-app",
+    "pm2:logs": "pm2 logs kids-learning-app"
+  },
+  "keywords": ["education", "kids", "learning"],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

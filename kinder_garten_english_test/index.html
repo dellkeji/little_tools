@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幼儿园学习APP</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 主页面 -->
+        <div id="home-page" class="page active">
+            <div class="header">
+                <h1>🎈 幼儿园学习乐园 🎈</h1>
+            </div>
+            <div class="menu-container">
+                <div class="menu-card" onclick="showSubject('english')">
+                    <div class="icon">🔤</div>
+                    <h2>英语学习</h2>
+                    <p>Learn English</p>
+                </div>
+                <div class="menu-card" onclick="showSubject('math')">
+                    <div class="icon">🔢</div>
+                    <h2>数学学习</h2>
+                    <p>Learn Math</p>
+                </div>
+                <div class="menu-card" onclick="showSubject('chinese')">
+                    <div class="icon">📖</div>
+                    <h2>语文学习</h2>
+                    <p>Learn Chinese</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 英语学习页面 -->
+        <div id="english-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="showHome()">← 返回</button>
+                <h1>🔤 英语学习</h1>
+            </div>
+            <div class="subject-menu">
+                <button class="subject-btn" onclick="startLesson('english')">📚 开始学习</button>
+                <button class="subject-btn" onclick="startTest('english')">✏️ 开始测试</button>
+            </div>
+            <div id="english-content" class="content"></div>
+        </div>
+
+        <!-- 数学学习页面 -->
+        <div id="math-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="showHome()">← 返回</button>
+                <h1>🔢 数学学习</h1>
+            </div>
+            <div class="subject-menu">
+                <button class="subject-btn" onclick="startLesson('math')">📚 开始学习</button>
+                <button class="subject-btn" onclick="startTest('math')">✏️ 开始测试</button>
+            </div>
+            <div id="math-content" class="content"></div>
+        </div>
+
+        <!-- 语文学习页面 -->
+        <div id="chinese-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="showHome()">← 返回</button>
+                <h1>📖 语文学习</h1>
+            </div>
+            <div class="subject-menu">
+                <button class="subject-btn" onclick="startLesson('chinese')">📚 开始学习</button>
+                <button class="subject-btn" onclick="startTest('chinese')">✏️ 开始测试</button>
+            </div>
+            <div id="chinese-content" class="content"></div>
+        </div>
+    </div>
+
+    <script src="learningData.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
