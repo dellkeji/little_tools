@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: servicemonitor
+    app.kubernetes.io/instance: controller-manager-metrics-monitor
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/created-by: service-operator
+    app.kubernetes.io/part-of: service-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: controller-manager-metrics-monitor
+  namespace: service-operator-system
+spec:
+  endpoints:
+  - path: /metrics
+    port: https
+    scheme: https
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tlsConfig:
+      insecureSkipVerify: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: service
+      app.kubernetes.io/instance: controller-manager-metrics-service
+      app.kubernetes.io/component: kube-rbac-proxy
+      app.kubernetes.io/created-by: service-operator
+      app.kubernetes.io/part-of: service-operator
+      app.kubernetes.io/managed-by: kustomize

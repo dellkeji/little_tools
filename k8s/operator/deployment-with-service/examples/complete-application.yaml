@@ -1,0 +1,297 @@
+# 完整的应用部署示例，包含前端、后端和数据库
+---
+# 数据库服务
+apiVersion: apps.example.com/v1
+kind: Service
+metadata:
+  name: postgres-db
+  namespace: myapp
+spec:
+  image: postgres:13
+  replicas: 1
+  port: 5432
+  serviceType: ClusterIP
+  configData:
+    postgresql.conf: |
+      # PostgreSQL configuration
+      max_connections = 100
+      shared_buffers = 128MB
+      effective_cache_size = 4GB
+      maintenance_work_mem = 64MB
+      checkpoint_completion_target = 0.9
+      wal_buffers = 16MB
+      default_statistics_target = 100
+      random_page_cost = 1.1
+      effective_io_concurrency = 200
+    init.sql: |
+      -- 初始化数据库脚本
+      CREATE DATABASE IF NOT EXISTS myapp;
+      CREATE USER IF NOT EXISTS appuser WITH PASSWORD 'apppass';
+      GRANT ALL PRIVILEGES ON DATABASE myapp TO appuser;
+  env:
+    - name: POSTGRES_DB
+      value: "myapp"
+    - name: POSTGRES_USER
+      value: "appuser"
+    - name: POSTGRES_PASSWORD
+      value: "apppass"
+    - name: PGDATA
+      value: "/var/lib/postgresql/data/pgdata"
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+
+---
+# Redis 缓存服务
+apiVersion: apps.example.com/v1
+kind: Service
+metadata:
+  name: redis-cache
+  namespace: myapp
+spec:
+  image: redis:7-alpine
+  replicas: 1
+  port: 6379
+  serviceType: ClusterIP
+  configData:
+    redis.conf: |
+      # Redis configuration
+      maxmemory 256mb
+      maxmemory-policy allkeys-lru
+      save 900 1
+      save 300 10
+      save 60 10000
+      appendonly yes
+      appendfsync everysec
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+---
+# 后端 API 服务
+apiVersion: apps.example.com/v1
+kind: Service
+metadata:
+  name: backend-api
+  namespace: myapp
+spec:
+  image: myregistry/myapp-backend:v1.2.0
+  replicas: 3
+  port: 8080
+  serviceType: ClusterIP
+  configData:
+    application.yml: |
+      server:
+        port: 8080
+        servlet:
+          context-path: /api
+      
+      spring:
+        datasource:
+          url: jdbc:postgresql://postgres-db:5432/myapp
+          username: appuser
+          password: apppass
+          driver-class-name: org.postgresql.Driver
+        
+        jpa:
+          hibernate:
+            ddl-auto: validate
+          show-sql: false
+          properties:
+            hibernate:
+              dialect: org.hibernate.dialect.PostgreSQLDialect
+              format_sql: true
+        
+        redis:
+          host: redis-cache
+          port: 6379
+          timeout: 2000ms
+          lettuce:
+            pool:
+              max-active: 8
+              max-idle: 8
+              min-idle: 0
+        
+        cache:
+          type: redis
+          redis:
+            time-to-live: 600000
+      
+      logging:
+        level:
+          com.mycompany: INFO
+          org.springframework.web: DEBUG
+        pattern:
+          console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+      
+      management:
+        endpoints:
+          web:
+            exposure:
+              include: health,info,metrics,prometheus
+        endpoint:
+          health:
+            show-details: always
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "production"
+    - name: JVM_OPTS
+      value: "-Xmx1g -Xms512m -XX:+UseG1GC"
+    - name: TZ
+      value: "Asia/Shanghai"
+    - name: SERVER_PORT
+      value: "8080"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+
+---
+# 前端 Web 服务
+apiVersion: apps.example.com/v1
+kind: Service
+metadata:
+  name: frontend-web
+  namespace: myapp
+spec:
+  image: myregistry/myapp-frontend:v1.2.0
+  replicas: 2
+  port: 80
+  serviceType: ClusterIP
+  configData:
+    nginx.conf: |
+      server {
+          listen 80;
+          server_name _;
+          root /usr/share/nginx/html;
+          index index.html;
+          
+          # Gzip compression
+          gzip on;
+          gzip_vary on;
+          gzip_min_length 1024;
+          gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+          
+          # Security headers
+          add_header X-Frame-Options "SAMEORIGIN" always;
+          add_header X-XSS-Protection "1; mode=block" always;
+          add_header X-Content-Type-Options "nosniff" always;
+          add_header Referrer-Policy "no-referrer-when-downgrade" always;
+          add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+          
+          # Static files caching
+          location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+              expires 1y;
+              add_header Cache-Control "public, immutable";
+          }
+          
+          # API proxy
+          location /api/ {
+              proxy_pass http://backend-api:8080/api/;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+          
+          # SPA fallback
+          location / {
+              try_files $uri $uri/ /index.html;
+          }
+      }
+    config.js: |
+      window.APP_CONFIG = {
+        API_BASE_URL: '/api',
+        APP_NAME: 'My Application',
+        VERSION: 'v1.2.0'
+      };
+  env:
+    - name: NODE_ENV
+      value: "production"
+    - name: API_URL
+      value: "http://backend-api:8080/api"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  ingress:
+    enabled: true
+    host: myapp.example.com
+    path: /
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/rate-limit: "100"
+      nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    tls:
+      enabled: true
+      secretName: myapp-tls
+
+---
+# 管理后台服务
+apiVersion: apps.example.com/v1
+kind: Service
+metadata:
+  name: admin-panel
+  namespace: myapp
+spec:
+  image: myregistry/myapp-admin:v1.2.0
+  replicas: 1
+  port: 3000
+  serviceType: ClusterIP
+  configData:
+    config.json: |
+      {
+        "apiUrl": "http://backend-api:8080/api",
+        "title": "My App Admin Panel",
+        "theme": "dark",
+        "features": {
+          "userManagement": true,
+          "analytics": true,
+          "systemMonitoring": true
+        }
+      }
+  env:
+    - name: NODE_ENV
+      value: "production"
+    - name: PORT
+      value: "3000"
+    - name: API_BASE_URL
+      value: "http://backend-api:8080/api"
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  ingress:
+    enabled: true
+    host: admin.myapp.example.com
+    path: /
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/auth-type: basic
+      nginx.ingress.kubernetes.io/auth-secret: admin-auth
+      nginx.ingress.kubernetes.io/auth-realm: "Admin Area"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    tls:
+      enabled: true
+      secretName: admin-myapp-tls

@@ -1,0 +1,8 @@
+nameReference:
+- kind: Service
+  version: v1
+  fieldSpecs:
+  - path: spec/rules/resourceNames
+    kind: ClusterRole
+  - path: spec/rules/resourceNames
+    kind: Role

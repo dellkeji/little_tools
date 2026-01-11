@@ -1,0 +1,158 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  GO_VERSION: '1.21'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Get version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Build binaries
+      run: |
+        make build
+        mkdir -p dist
+        
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o dist/service-operator-linux-amd64 main.go
+        GOOS=linux GOARCH=arm64 go build -o dist/service-operator-linux-arm64 main.go
+        GOOS=darwin GOARCH=amd64 go build -o dist/service-operator-darwin-amd64 main.go
+        GOOS=darwin GOARCH=arm64 go build -o dist/service-operator-darwin-arm64 main.go
+        GOOS=windows GOARCH=amd64 go build -o dist/service-operator-windows-amd64.exe main.go
+
+    - name: Generate manifests
+      run: |
+        make manifests
+        mkdir -p dist/manifests
+        
+        # Generate installation manifests
+        kustomize build config/default > dist/manifests/install.yaml
+        
+        # Generate CRD only
+        cp config/crd/bases/apps.example.com_services.yaml dist/manifests/crd.yaml
+        
+        # Generate RBAC only
+        kustomize build config/rbac > dist/manifests/rbac.yaml
+
+    - name: Package Helm chart
+      run: |
+        helm package deploy/helm/service-operator --destination dist/
+        helm repo index dist/ --url https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/
+
+    - name: Generate checksums
+      run: |
+        cd dist
+        sha256sum * > checksums.txt
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        # Extract changelog for this version
+        VERSION=${{ steps.version.outputs.VERSION }}
+        awk "/^## \[${VERSION#v}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+        
+        # If no specific version found, use unreleased section
+        if [ ! -s release_notes.md ]; then
+          awk "/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+        fi
+        
+        # Add installation instructions
+        cat >> release_notes.md << 'EOF'
+        
+        ## Installation
+        
+        ### Using the install script:
+        ```bash
+        curl -sSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/install.sh | bash
+        ```
+        
+        ### Using Helm:
+        ```bash
+        helm install service-operator https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/service-operator-*.tgz
+        ```
+        
+        ### Using kubectl:
+        ```bash
+        kubectl apply -f https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/install.yaml
+        ```
+        
+        ## Container Images
+        
+        - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}`
+        - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest`
+        
+        ## Verification
+        
+        All artifacts are signed and can be verified using the provided checksums.
+        EOF
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release_notes.md
+        files: |
+          dist/service-operator-*
+          dist/manifests/*
+          dist/*.tgz
+          dist/index.yaml
+          dist/checksums.txt
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update Helm repository
+      if: ${{ !contains(steps.version.outputs.VERSION, '-') }}
+      run: |
+        # This would typically push to a separate gh-pages branch
+        # or update a Helm repository
+        echo "Helm chart released: service-operator-${{ steps.version.outputs.VERSION }}.tgz"

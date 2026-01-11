@@ -1,0 +1,64 @@
+apiVersion: apps.example.com/v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: production
+spec:
+  image: myregistry/api-service:v1.2.3
+  replicas: 5
+  port: 8080
+  serviceType: ClusterIP
+  configData:
+    application.yml: |
+      server:
+        port: 8080
+      spring:
+        datasource:
+          url: jdbc:postgresql://postgres-db:5432/myapp
+          username: myuser
+          password: mypassword
+        jpa:
+          hibernate:
+            ddl-auto: validate
+      logging:
+        level:
+          com.mycompany: INFO
+    logback-spring.xml: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <configuration>
+          <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+              <encoder>
+                  <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+              </encoder>
+          </appender>
+          <root level="INFO">
+              <appender-ref ref="STDOUT" />
+          </root>
+      </configuration>
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "production"
+    - name: JVM_OPTS
+      value: "-Xmx1g -Xms512m"
+    - name: TZ
+      value: "Asia/Shanghai"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+  ingress:
+    enabled: true
+    host: api.mycompany.com
+    path: /api
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/rate-limit: "100"
+      nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    tls:
+      enabled: true
+      secretName: api-service-tls

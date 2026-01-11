@@ -1,0 +1,51 @@
+# Ignore everything by default
+*
+
+# Include only necessary files for building
+!go.mod
+!go.sum
+!main.go
+!api/
+!controllers/
+
+# Exclude test files
+**/*_test.go
+**/testdata/
+
+# Exclude documentation
+!README.md
+!LICENSE
+
+# Exclude build artifacts
+bin/
+testbin/
+cover.out
+*.log
+
+# Exclude IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Exclude OS files
+.DS_Store
+Thumbs.db
+
+# Exclude git
+.git/
+.gitignore
+
+# Exclude CI/CD files
+.github/
+
+# Exclude development files
+scripts/
+docs/
+examples/
+config/
+deploy/
+
+# Exclude temporary files
+*.tmp
+*.temp

@@ -1,0 +1,17 @@
+apiVersion: v2
+name: service-operator
+description: A Kubernetes operator for managing complete service deployments
+type: application
+version: 0.1.0
+appVersion: "v0.1.0"
+keywords:
+  - kubernetes
+  - operator
+  - deployment
+  - service
+home: https://github.com/example/service-operator
+sources:
+  - https://github.com/example/service-operator
+maintainers:
+  - name: Service Operator Team
+    email: team@example.com

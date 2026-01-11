@@ -1,0 +1,23 @@
+namePrefix: service-operator-
+
+resources:
+- ../crd
+- ../rbac
+- ../manager
+
+patchesStrategicMerge:
+- manager_auth_proxy_patch.yaml
+
+replacements:
+- source:
+    kind: Service
+    version: v1
+    name: controller-manager-metrics-service
+    fieldPath: .metadata.name
+  targets:
+  - select:
+      kind: ServiceMonitor
+      version: v1
+      group: monitoring.coreos.com
+    fieldPaths:
+    - .spec.selector.matchLabels.[app.kubernetes.io/name]

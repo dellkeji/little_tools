@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "my-mcp-server": {
+      "command": "python",
+      "args": ["server.py"],
+      "disabled": false,
+      "autoApprove": ["get_server_version"],
+      "env": {
+        "PYTHONPATH": "."
+      }
+    }
+  }
+}

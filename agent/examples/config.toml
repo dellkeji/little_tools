@@ -1,0 +1,63 @@
+[agent]
+id = "550e8400-e29b-41d4-a716-446655440000"
+name = "production-agent"
+tags = ["production", "web-server"]
+heartbeat_interval = 30
+command_timeout = 300
+
+[control_plane]
+enabled = true
+server_url = "https://control.example.com"
+api_key = "your-api-key-here"
+poll_interval = 10
+max_concurrent_commands = 5
+
+[data_plane]
+enabled = true
+buffer_size = 1000
+flush_interval = 60
+
+[[data_plane.collectors]]
+name = "system_metrics"
+collector_type = "system"
+enabled = true
+
+[data_plane.collectors.config]
+interval = 30
+metrics = ["cpu", "memory", "disk"]
+
+[[data_plane.collectors]]
+name = "nginx_logs"
+collector_type = "log"
+enabled = true
+
+[data_plane.collectors.config]
+path = "/var/log/nginx/access.log"
+pattern = ".*"
+
+[[data_plane.collectors]]
+name = "custom_health_check"
+collector_type = "custom"
+enabled = true
+
+[data_plane.collectors.config]
+command = "curl -s http://localhost:8080/health | jq -r .status"
+interval = 60
+
+[[data_plane.exporters]]
+name = "prometheus_exporter"
+exporter_type = "http"
+endpoint = "https://metrics.example.com/api/v1/metrics"
+batch_size = 100
+enabled = true
+
+[data_plane.exporters.headers]
+"Content-Type" = "application/json"
+"Authorization" = "Bearer metrics-token"
+
+[[data_plane.exporters]]
+name = "local_file_backup"
+exporter_type = "file"
+endpoint = "/var/log/agent/metrics.jsonl"
+batch_size = 50
+enabled = true
